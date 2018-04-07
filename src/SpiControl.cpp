@@ -8,7 +8,11 @@
 #define PIN_ID_LORA_DIO0 11
 
 // Constructor - set up the pins and SPI. Pins set to -1 we use default values above.
-SpiControl::SpiControl(int pinSS, int pinRST, int pinINT) : _Settings(5000000, MSBFIRST, SPI_MODE0)
+SpiControl::SpiControl() : _Settings(5000000, MSBFIRST, SPI_MODE0)
+{
+}
+
+void SpiControl::Initialize(int pinSS, int pinRST, int pinINT)
 {
 	SPI.begin();
 	// lock out this interrupt while we are in a transaction

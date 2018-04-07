@@ -11,7 +11,8 @@
 class SpiControl
 {
 	public :
-		SpiControl(int pinSS, int pinRST, int pinINT);		// this also does LoRa control, so pass those pins in
+		SpiControl();										// empty constructor
+		void Initialize(int pinSS, int pinRST, int pinINT);		// this also does LoRa control, so pass those pins in
 
 		uint8_t transfer( uint8_t address, uint8_t value = 0);			// write a byte to address, return result
 		void transfer( uint8_t address, uint8_t* buffer, uint8_t count);// write bytes to address, return values in buffer

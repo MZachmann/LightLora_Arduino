@@ -16,6 +16,9 @@
 #include "SpiControl.h"
 #include "SerialWrap.h"
 
+static SpiControl _MySpiControl;
+static Sx127x _MySx127x;
+
 // -------------------------------------
 // LoraPacket
 // The data packet definition
@@ -31,24 +34,31 @@
 		snr = 0;
 	}
 
-// -------------------------------------
-// LoraUtil
-// The high level helper
-// -------------------------------------
-	LoraUtil::LoraUtil(int pinSS, int pinRST, int pinINT, StringPair* params)
-	{
-		StringPair parameters[] = {{"tx_power_level", 5},
+
+static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 								{"signal_bandwidth", 125000},
 								{"spreading_factor", 7},
 								{"coding_rate", 5},
 								{"enable_CRC", 1},
 								{ StringPair::LastSP, 0}};
+
+// -------------------------------------
+// LoraUtil
+// The high level helper
+// -------------------------------------
+	LoraUtil::LoraUtil(int pinSS, int pinRST, int pinINT, const StringPair* params)
+	{
 		// init lora
 		if( params == NULL)
 		{
-			params = parameters;	// use our default overrides
+			params = LoraParameters;	// use our default overrides
 		}
-		this->init(pinSS, pinRST, pinINT, params);
+		this->Initialize(pinSS, pinRST, pinINT, params);
+	}
+
+	LoraUtil::LoraUtil()
+	{
+		// do nothing, must call initialize
 	}
 
 	// for diagnostics, get at the internal spi controller
@@ -67,7 +77,7 @@
 	// 	sendPacket -> send a string
 	// 	isPacketAvailable -> do we have a packet available?
 	// 	readPacket -> get the latest packet
-	void LoraUtil::init(int pinSS, int pinRST, int pinINT, StringPair* params)
+	void LoraUtil::Initialize(int pinSS, int pinRST, int pinINT, const StringPair* params)
 	{
 		// just be neat and init variables in the __init__
 		this->linecounter = 0;
@@ -75,8 +85,10 @@
 		this->doneTransmit = false;
 
 		// init spi
-		this->spic = new SpiControl(pinSS, pinRST, pinINT);
-		this->lora = new Sx127x(NULL, this->spic);
+		this->spic = &_MySpiControl;	// static
+		this->spic->Initialize(pinSS, pinRST, pinINT);
+		this->lora = &_MySx127x;
+		this->lora->Initialize(NULL, this->spic);
 		this->spic->initLoraPins(); // init pins and reset sx127x chip
 		this->lora->init(params);
 		// pass in the callback capability

@@ -80,7 +80,7 @@ int MAX_PKT_LENGTH = 255;
 static volatile bool IsRunning = false;
 
 // pass in non-default parameters for any/all options in the constructor parameters argument
-StringPair DEFAULT_PARAMETERS[] = {{"frequency", 915}, {"tx_power_level", 2}, 
+static const StringPair DEFAULT_PARAMETERS[] = {{"frequency", 915}, {"tx_power_level", 2}, 
 									{"signal_bandwidth", 125000}, {"spreading_factor", 7},
 									{ "coding_rate", 5}, {"preamble_length", 8},
 					  				{"implicitHeader", 0}, {"sync_word", 0x12}, {"enable_CRC", 0},
@@ -94,17 +94,15 @@ static Sx127x* _Singleton = NULL;
 // --------------------------------------------------------------------
 // StringPairs let us create the equivalent of a Python dictionary
 // --------------------------------------------------------------------
-	StringPair::StringPair(String name, int value) 
+	StringPair::StringPair(const char* name, int value) : Name(name), Value(value)
 	{
-		Name = name;
-		Value = value; 
 	}
 
 	// a marker for end of list so we don't pass in counts
-	String StringPair::LastSP("LXXL");
+	const char *StringPair::LastSP("LXXL");
 
 	// look for a string in the string pairs
-	int IndexOfPair(StringPair* dict, String& value)
+	int IndexOfPair(const StringPair* dict, const char* value)
 	{
 		if(dict == NULL)
 		{
@@ -112,9 +110,9 @@ static Sx127x* _Singleton = NULL;
 		}
 
 		int i = 0;
-		while( dict[i].Name != StringPair::LastSP)
+		while(0 != strcmp(dict[i].Name, StringPair::LastSP))
 		{
-			if(dict[i].Name == value)
+			if(0 == strcmp(dict[i].Name, value))
 				return i;
 			i++;
 		}
@@ -131,11 +129,6 @@ static Sx127x* _Singleton = NULL;
 		{
 			_Singleton = NULL;
 		}
-		if(_SpiControl != NULL)
-		{
-			delete _SpiControl;
-			_SpiControl = NULL;
-		}
 		if(_FifoBuf != NULL)
 		{
 			delete _FifoBuf;
@@ -144,7 +137,12 @@ static Sx127x* _Singleton = NULL;
 	}
 
 	/// Standard SX127x library. Requires an spicontrol.SpiControl instance for spiControl
-	Sx127x::Sx127x(String* name, SpiControl* spic) : _FifoBuf(NULL), _SpiControl(NULL), _LoraRcv(NULL)
+	Sx127x::Sx127x() : _FifoBuf(NULL), _SpiControl(NULL), _LoraRcv(NULL)
+	{
+
+	}
+
+	void Sx127x::Initialize(String* name, SpiControl* spic)
 	{
 		this->_Lock = true;
 		this->_Name = (name != NULL) ? (*name) : "Sx127x";
@@ -152,17 +150,16 @@ static Sx127x* _Singleton = NULL;
 		this->_IrqPin = spic->getIrqPin(); // a way to need loracontrol only in spicontrol
 		this->_FifoBuf = new TinyVector(0, 30);	// our sorta persistent buffer
 		_Singleton = this;				// yuck... but required for interrupt handler
-		ASeries.println("Finish sx127x construction.");
+		ASeries.println("Finish Sx127x construction.");
 	}
 
 	// if we passed in a param use it, else use default
-	int UseParam(StringPair* parameters, const char* whom)
+	int UseParam(const StringPair* parameters, const char* whom)
 	{
-		String who = whom;
-		int idx = IndexOfPair(parameters, who);
+		int idx = IndexOfPair(parameters, whom);
 		if(-1 == idx)
 		{
-			idx = IndexOfPair(DEFAULT_PARAMETERS, who);
+			idx = IndexOfPair(DEFAULT_PARAMETERS, whom);
 			if(-1 != idx)
 			{
 				return DEFAULT_PARAMETERS[idx].Value;
@@ -173,14 +170,14 @@ static Sx127x* _Singleton = NULL;
 		return parameters[idx].Value;
 	}
 
-	bool Sx127x::init(StringPair* params)
+	bool Sx127x::init(const StringPair* params)
 	{
 		// check version
 		ASeries.println("Reading version");
 		int version = this->readRegister(REG_VERSION);
 		if (version != REQUIRED_VERSION)
 		{
-			ASeries.println("Detected incorrect version:" + String(version));
+			ASeries.printf("Detected incorrect version: %d", version);
 			return false;
 		}
 		ASeries.println("Read version ok");
@@ -379,6 +376,7 @@ static Sx127x* _Singleton = NULL;
 	// and 2...17 if PA_BOOST
 	void Sx127x::setTxPower(int level, int outputPin)
 	{
+		ASeries.printf("Set transmit power to: %d", level);
 		if (outputPin == PA_OUTPUT_RFO_PIN)
 		{
 			// RFO
@@ -412,14 +410,14 @@ static Sx127x* _Singleton = NULL;
 	// FSTEP = FXOSC/2**19 where FXOSC=32MHz. So FSTEP==61.03515625
 	void Sx127x::setFrequency(double frequency)
 	{
-		ASeries.println("Set frequency to: " + String(frequency));
+		ASeries.printf("Set frequency to: %g", frequency);
 		this->_Frequency = frequency;
 		uint32_t stepf = (uint32_t)(frequency / 61.03515625);	// get 24 bits of freq/step
 		uint8_t frfs[3];
 		frfs[0] = 0xff & (stepf>>16);
 		frfs[1] = 0xff & (stepf>>8);
 		frfs[2] = 0xff & (stepf);
-		ASeries.println("Frf registers: " + String(frfs[0]) + "." + String(frfs[1]) + "." + String(frfs[2]));
+		ASeries.printf("Frf registers: %d.%d.%d", (int)frfs[0], (int)frfs[1], (int)frfs[2]);
 		this->writeRegister(REG_FRF_MSB, frfs[0]);
 		this->writeRegister(REG_FRF_MID, frfs[1]);
 		this->writeRegister(REG_FRF_LSB, frfs[2]);
@@ -427,7 +425,7 @@ static Sx127x* _Singleton = NULL;
 
 	void Sx127x::setSpreadingFactor(int sf)
 	{
-		ASeries.println("Set spreading factor to: " + String(sf));
+		ASeries.printf("Set spreading factor to: %d", sf);
 		sf = min(max(sf, 6), 12);
 		this->writeRegister(REG_DETECTION_OPTIMIZE, (sf == 6) ? 0xc5 : 0xc3);
 		this->writeRegister(REG_DETECTION_THRESHOLD, (sf == 6) ? 0x0c : 0x0a);
@@ -436,7 +434,7 @@ static Sx127x* _Singleton = NULL;
 
 	void Sx127x::setSignalBandwidth(int sbw)
 	{
-		ASeries.println("Set sbw to: " + String(sbw));
+		ASeries.printf("Set sbw to: %d", sbw);
 		int bins[] = {7800, 10400, 15600, 20800, 31250, 41700, 62500, 125000, 250000};
 		int bw = 9;
 		for (int i=0; i<ARRAY_SIZE(bins); i++)
@@ -452,7 +450,7 @@ static Sx127x* _Singleton = NULL;
 
 	void Sx127x::setCodingRate(int denominator)
 	{
-		ASeries.println("Set coding rate to: " + String(denominator));
+		ASeries.printf("Set coding rate to: %d", denominator);
 		// this takes a value of 5..8 as the denominator of 4/5, 4/6, 4/7, 5/8
 		denominator = min(max(denominator, 5), 8);
 		int cr = denominator - 4;
@@ -461,13 +459,14 @@ static Sx127x* _Singleton = NULL;
 
 	void Sx127x::setPreambleLength(int length)
 	{
+		ASeries.printf("Set preamble length to: %d", length);
 		this->writeRegister(REG_PREAMBLE_MSB, (length >> 8) & 0xff);
 		this->writeRegister(REG_PREAMBLE_LSB, (length >> 0) & 0xff);
 	}
 
 	void Sx127x::enableCRC(bool enable_CRC)
 	{
-		ASeries.println("Enable crc: " + (enable_CRC ? String("Yes") : String("No")));
+		ASeries.printf("Enable crc: %s", enable_CRC ? "Yes" : "No");
 		uint8_t modem_config_2 = this->readRegister(REG_MODEM_CONFIG_2);
 		uint8_t config = enable_CRC ? (modem_config_2 | 0x04) : (modem_config_2 & 0xfb);
 		this->writeRegister(REG_MODEM_CONFIG_2, config);
@@ -482,7 +481,7 @@ static Sx127x* _Singleton = NULL;
 	{
 		if (this->_ImplicitHeaderMode != implicitHeaderMode)  // set value only if different.
 		{
-			ASeries.println("Set implicit header: " + (implicitHeaderMode ? String("Yes") : String("No")));
+			ASeries.printf("Set implicit header: %s", implicitHeaderMode ? "Yes" : "No");
 			this->_ImplicitHeaderMode = implicitHeaderMode;
 			uint8_t modem_config_1 = this->readRegister(REG_MODEM_CONFIG_1);
 			uint8_t config = implicitHeaderMode ? (modem_config_1 | 0x01) : (modem_config_1 & 0xfe);

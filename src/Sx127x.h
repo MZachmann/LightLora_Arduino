@@ -28,11 +28,10 @@ class LoraReceiver
 class StringPair
 {
 	public:
-		StringPair() {}
-		StringPair(String name, int value);
-		static String LastSP;	// Last for string list
-		String Name;
-		int Value;
+		StringPair(const char* name, int value);
+		static const char* LastSP;	// Last for string list
+		const char* Name;
+		const int Value;
 };
 
 // the method prototype for what we pass to the interrupt handler
@@ -41,14 +40,15 @@ typedef void (*InterruptFn)(void);
 class Sx127x
 {
 	public:
-		Sx127x(String* name=NULL, SpiControl* spic=NULL);
+		Sx127x();		// empty constructor
+		void Initialize(String* name=NULL, SpiControl* spic=NULL);
 		virtual ~Sx127x();
 		
 	// parameters is a list of StringPairs ending with { StringPair::LastSP, 0}
 	// they are option name, value. Defaults are:
 	// {"frequency", 915}, {"tx_power_level", 2}, {"signal_bandwidth", 125000}, {"spreading_factor", 7},
 	// { "coding_rate", 5}, {"preamble_length", 8}, {"implicitHeader", 0}, {"sync_word", 0x12}, {"enable_CRC", 0},
-		bool init(StringPair* parameters =NULL);			// must be called first. Returns false if not detected
+		bool init(const StringPair* parameters =NULL);			// must be called first. Returns false if not detected
 		void setReceiver(LoraReceiver* receiver);			// use a receiver class on interrupts
 		const String& lastError();							// get the last error message if there was one during interrupt
 
