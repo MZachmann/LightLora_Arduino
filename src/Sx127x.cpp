@@ -190,7 +190,8 @@ static Sx127x* _Singleton = NULL;
 		ASeries.println("Sleeping");
 
 		// config
-		this->setFrequency(UseParam(params, "frequency"));
+		int freq = UseParam(params, "frequency");	// get frequency as int in MHz
+		this->setFrequency((double)freq * 1E6);
 		this->setSignalBandwidth(UseParam(params, "signal_bandwidth"));
 
 		// set LNA boost
@@ -407,26 +408,21 @@ static Sx127x* _Singleton = NULL;
 	}
 
 	// set the frequency band. passed in MHz
-	void Sx127x::setFrequency(int frequency)
+	// Frf register setting = Freq / FSTEP where
+	// FSTEP = FXOSC/2**19 where FXOSC=32MHz. So FSTEP==61.03515625
+	void Sx127x::setFrequency(double frequency)
 	{
 		ASeries.println("Set frequency to: " + String(frequency));
 		this->_Frequency = frequency;
-		int frfs[][4] = {	{169,  42,  64, 0},
-							{433, 108,  64, 0},
-							{434, 108, 128, 0},
-							{866, 216, 128, 0},
-							{868, 217,   0, 0},
-							{915, 228, 192, 0}};
-		for(int i=0; i<6; i++)
-		{
-			if(frfs[i][0] == frequency)
-			{
-				this->writeRegister(REG_FRF_MSB, frfs[i][1]);
-				this->writeRegister(REG_FRF_MID, frfs[i][2]);
-				this->writeRegister(REG_FRF_LSB, frfs[i][3]);
-				break;	// and we're done
-			}
-		}
+		uint32_t stepf = (uint32_t)(frequency / 61.03515625);	// get 24 bits of freq/step
+		uint8_t frfs[3];
+		frfs[0] = 0xff & (stepf>>16);
+		frfs[1] = 0xff & (stepf>>8);
+		frfs[2] = 0xff & (stepf);
+		ASeries.println("Frf registers: " + String(frfs[0]) + "." + String(frfs[1]) + "." + String(frfs[2]));
+		this->writeRegister(REG_FRF_MSB, frfs[0]);
+		this->writeRegister(REG_FRF_MID, frfs[1]);
+		this->writeRegister(REG_FRF_LSB, frfs[2]);
 	}
 
 	void Sx127x::setSpreadingFactor(int sf)
@@ -546,9 +542,10 @@ static Sx127x* _Singleton = NULL;
 
 		this->_LastError = "";
 		this->acquire_lock(true);			// lock until TX_Done
-		int irqFlags = this->getIrqFlags();
+		uint8_t irqFlags = this->getIrqFlags();
+		uint8_t irqbad = IRQ_PAYLOAD_CRC_ERROR_MASK | IRQ_RX_TIME_OUT_MASK;
 		if ( (irqFlags & IRQ_RX_DONE_MASK) &&
-		     (irqFlags & IRQ_PAYLOAD_CRC_ERROR_MASK) == 0 &&
+		     (irqFlags & irqbad) == 0 &&
 			 (this->_LoraRcv != NULL) )
 			{
 				// it's a receive data ready interrupt
@@ -559,13 +556,16 @@ static Sx127x* _Singleton = NULL;
 		else
 		{
 			this->acquire_lock(false);			 // unlock in any case.
-			if (not irqFlags & IRQ_RX_DONE_MASK)
+			if (!(irqFlags & IRQ_RX_DONE_MASK))
 			{
 				this->_LastError = "not rx done mask";
 			}
-			else if ((irqFlags & IRQ_PAYLOAD_CRC_ERROR_MASK) != 0)
+			else if((irqFlags & irqbad) != 0)
 			{
-				this->_LastError = "crc error";
+				if(irqFlags & IRQ_PAYLOAD_CRC_ERROR_MASK)
+					this->_LastError = "rx crc error";
+				else
+					this->_LastError = "rx timeout error";
 			}
 			else
 			{

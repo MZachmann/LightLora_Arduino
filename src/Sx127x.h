@@ -63,7 +63,7 @@ class Sx127x
 		void standby(); 									// put chip in standby
 		void sleep(); 										// put chip to sleep
 		void setTxPower(int level, int outputPin=PA_OUTPUT_PA_BOOST_PIN);	// set the power level
-		void setFrequency(int frequency);					// set the transmit frequency (in MHz)
+		void setFrequency(double frequency);				// set the transmit frequency (in Hz)
 		void setSpreadingFactor(int sf);					// set spread factor exponent (2**x)
 		void setSignalBandwidth(int sbw);					// set the signal bandwidth
 		void setCodingRate(int denominator);				// set coding rate denominator (num=4). 4,5,7,8
@@ -89,7 +89,7 @@ class Sx127x
 		String _LastError;
 		int _IrqPin;				// the irq pin
 		bool _ImplicitHeaderMode;
-		int _Frequency;				// in MHz
+		double _Frequency;			// in Hz
 		LoraReceiver* _LoraRcv;		// who we call on interrupt
 		SpiControl* _SpiControl;	// the SPI wrapper
 		TinyVector* _FifoBuf;		// a semi-persistant buffer
