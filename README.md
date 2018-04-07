@@ -14,17 +14,20 @@ Usage
 --
 During setup call 
 ```c++
-LoraUtil* lru = LoraUtil::LoraUtil(pinSS, pinRST, pinINT)
+StringPair parameters[] = {{"enable_CRC", 1}, { StringPair::LastSP, 0}}; // example
+LoraUtil* lru = new LoraUtil(pinSS, pinRST, pinINT, parameters);
 ```
+Where parameters may be NULL for defaults or an array of StringPairs terminated by StringPair::LastSP.
+
 During the loop you can
 ```c++
-while(!lru->isPacketAvailable())
-	;
-LoraPacket pkt = lru->readPacket();
-Serial.println(pkt->msgTxt);
+if(lru->isPacketAvailable())
+{
+	LoraPacket* pkt = lru->readPacket();
+	Serial.println(pkt->msgTxt);
+}
 ...
-String txt = "Hello World";
-lru->sendString(txt);
+lru->sendString("Hello World");
 ```
 
 Customization

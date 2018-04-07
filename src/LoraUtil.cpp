@@ -35,9 +35,20 @@
 // LoraUtil
 // The high level helper
 // -------------------------------------
-	LoraUtil::LoraUtil(int pinSS, int pinRST, int pinINT)
+	LoraUtil::LoraUtil(int pinSS, int pinRST, int pinINT, StringPair* params)
 	{
-		this->init(pinSS, pinRST, pinINT);
+		StringPair parameters[] = {{"tx_power_level", 5},
+								{"signal_bandwidth", 125000},
+								{"spreading_factor", 7},
+								{"coding_rate", 5},
+								{"enable_CRC", 1},
+								{ StringPair::LastSP, 0}};
+		// init lora
+		if( params == NULL)
+		{
+			params = parameters;	// use our default overrides
+		}
+		this->init(pinSS, pinRST, pinINT, params);
 	}
 
 	// for diagnostics, get at the internal spi controller
@@ -56,7 +67,7 @@
 	// 	sendPacket -> send a string
 	// 	isPacketAvailable -> do we have a packet available?
 	// 	readPacket -> get the latest packet
-	void LoraUtil::init(int pinSS, int pinRST, int pinINT)
+	void LoraUtil::init(int pinSS, int pinRST, int pinINT, StringPair* params)
 	{
 		// just be neat and init variables in the __init__
 		this->linecounter = 0;
@@ -67,13 +78,6 @@
 		this->spic = new SpiControl(pinSS, pinRST, pinINT);
 		this->lora = new Sx127x(NULL, this->spic);
 		this->spic->initLoraPins(); // init pins and reset sx127x chip
-		// init lora
-		StringPair params[] = {{"tx_power_level", 5},
-								{"signal_bandwidth", 125000},
-								{"spreading_factor", 7},
-								{"coding_rate", 5},
-								{"enable_CRC", 1},
-								{ StringPair::LastSP, 0}};
 		this->lora->init(params);
 		// pass in the callback capability
 		this->lora->setReceiver(this);

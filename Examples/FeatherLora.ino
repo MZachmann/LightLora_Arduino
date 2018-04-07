@@ -37,7 +37,7 @@ static LoraUtil* _Lru = NULL;
 void setup()
 {
 	ASeries.Start(115200);
-	ASeries.println("Feather nrf52 Test!");
+	ASeries.println("Feather Test!");
 
 	// sit for 4 seconds in case something later crashes
 	BlinkLed(true);		// show we're booting...
@@ -47,8 +47,14 @@ void setup()
 	}
 	BlinkLed(false);
 
-	// start up the LoRa card
-	_Lru = new LoraUtil(PIN_ID_LORA_SS, PIN_ID_LORA_RESET, PIN_ID_LORA_DIO0);
+	// start up the LoRa card. Optional parameters argument
+	StringPair parameters[] = {{"tx_power_level", _TransmitPower},
+				{"signal_bandwidth", 125000},
+				{"spreading_factor", 7},
+				{"coding_rate", 5},
+				{"enable_CRC", 1},
+				{ StringPair::LastSP, 0}};
+	_Lru = new LoraUtil(PIN_ID_LORA_SS, PIN_ID_LORA_RESET, PIN_ID_LORA_DIO0, parameters);
 	ASeries.println("Lora is reset");
 
 	_SendTime = millis();

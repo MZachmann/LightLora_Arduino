@@ -26,7 +26,7 @@ class LoraPacket
 class LoraUtil : public LoraReceiver
 {
 	public:
-		LoraUtil(int pinSS, int pinRST, int pinINT);
+		LoraUtil(int pinSS, int pinRST, int pinINT, StringPair* params = NULL);
 		String getError();	// for errors that happened during interrupt
 		void Reset();		// reset the device
 		void Sleep();		// sleep the device
@@ -42,7 +42,7 @@ class LoraUtil : public LoraReceiver
 		virtual void _doReceive(TinyVector* payload);
 		virtual void _doTransmit();
 	private:
-		void init(int pinSS, int pinRST, int pinINT);
+		void init(int pinSS, int pinRST, int pinINT, StringPair* params);
 		void writeInt(uint8_t value);
 		//
 		SpiControl* Spi();	// the SPI comm wrapper
