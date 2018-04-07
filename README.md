@@ -35,6 +35,8 @@ There is a `BlinkLed` routine in the ino that needs a pin value for the on-board
 
 The `SPI` device is run with no choices for pin assignment, as seems to be typical.
 
+The LoraUtil object is a LoraReceiver;  it has callbacks for transmit and receive that can easily changed.
+
 Cautions
 ---
 Interrupt routines in Arduino are finicky and only support some functions. Set flags and strings and do very little else in the transmit and receive handlers.
