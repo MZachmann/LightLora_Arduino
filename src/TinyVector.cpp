@@ -41,7 +41,7 @@ bool TinyVector::Allocate(uint16_t size, uint16_t extra)
 		_MaxLength = size + extra;
 		_Data = (uint8_t*)malloc(_MaxLength);
 	}
-	else if(_MaxLength > (size+extra))
+	else if(_MaxLength >= (size+extra))
 	{
 		// just change nominal size if shrinking
 		_Length = size;

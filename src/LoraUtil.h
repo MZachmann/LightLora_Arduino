@@ -1,7 +1,7 @@
 #ifndef LORA_UTIL
 #define LORA_UTIL
 
-#include "sx127x.h"
+#include "Sx127x.h"
 
 class SpiControl;
 class TinyVector;
@@ -28,10 +28,13 @@ class LoraUtil : public LoraReceiver
 	public:
 		LoraUtil(int pinSS, int pinRST, int pinINT);
 		String getError();	// for errors that happened during interrupt
+		void Reset();		// reset the device
+		void Sleep();		// sleep the device
+		void WaitForPacket();	// go into receive mode
 		// send
 		void sendPacket(uint8_t dstAddress, uint8_t localAddress, TinyVector& outGoing);
 		void sendString(String& content);
-		bool isPacketSent();		// asynchronous transmit flag
+		bool isPacketSent(bool forceClear = false);		// asynchronous transmit flag
 		// receive
 		LoraPacket* readPacket();
 		bool isPacketAvailable();

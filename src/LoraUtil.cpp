@@ -10,11 +10,11 @@
 
 
 #include "Arduino.h"
-#include "lorautil.h"
+#include "LoraUtil.h"
 #include "TinyVector.h"
-#include "sx127x.h"
-#include "spicontrol.h"
-#include "../Utility.h"
+#include "Sx127x.h"
+#include "SpiControl.h"
+#include "SerialWrap.h"
 
 // -------------------------------------
 // LoraPacket
@@ -87,6 +87,16 @@
 		return this->lora->lastError();
 	}
 
+	void LoraUtil::Reset()
+	{
+		this->spic->initLoraPins();
+	}
+
+	void LoraUtil::Sleep()
+	{
+		this->lora->sleep();
+	}
+
 	// we received a packet, deal with it
 	void LoraUtil::_doReceive(TinyVector* pay)
 	{
@@ -120,14 +130,25 @@
 		this->lora->receive(); // wait for a packet (?)
 	}
 
-	bool LoraUtil::isPacketSent()
+	bool LoraUtil::isPacketSent(bool forceClear)
 	{
-		return this->doneTransmit;
+		bool dt = this->doneTransmit;
+		if(forceClear)
+		{
+			// there's no other way to clear the flag so do it when we check
+			this->doneTransmit = false;
+		}
+		return dt;
 	}
 
 	void LoraUtil::writeInt(uint8_t value)
 	{
 		this->lora->writeFifo(&value, 1);
+	}
+
+	void LoraUtil::WaitForPacket()
+	{
+		this->lora->receive();
 	}
 
 	void LoraUtil::sendPacket(uint8_t dstAddress, uint8_t localAddress, TinyVector& outGoing)

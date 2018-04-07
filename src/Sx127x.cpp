@@ -12,10 +12,10 @@ There's an exact copy in Micropython at ??
 */
 
 #include "Arduino.h"
-#include "sx127x.h"
-#include "spicontrol.h"
+#include "Sx127x.h"
+#include "SpiControl.h"
 #include "TinyVector.h"
-#include "../Utility.h"
+#include "SerialWrap.h"
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
 
