@@ -180,7 +180,7 @@ static Sx127x* _Singleton = NULL;
 		int version = this->readRegister(REG_VERSION);
 		if (version != REQUIRED_VERSION)
 		{
-			ASeries.println("Detected version:" + String(version));
+			ASeries.println("Detected incorrect version:" + String(version));
 			return false;
 		}
 		ASeries.println("Read version ok");
@@ -407,7 +407,7 @@ static Sx127x* _Singleton = NULL;
 		}
 	}
 
-	// set the frequency band. passed in MHz
+	// set the frequency band. passed in Hz
 	// Frf register setting = Freq / FSTEP where
 	// FSTEP = FXOSC/2**19 where FXOSC=32MHz. So FSTEP==61.03515625
 	void Sx127x::setFrequency(double frequency)

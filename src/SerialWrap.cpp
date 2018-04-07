@@ -1,5 +1,6 @@
 #include "Arduino.h"
 #include "SerialWrap.h"
+#include <stdarg.h>     /* va_list, va_start, va_arg, va_end */
 
 // This is just a Serial wrapper. The standard Serial interface should not be used.
 // Serial by itself crashes when the port closes and you write to it as well as when
@@ -188,3 +189,25 @@ String SerialWrap::getStrTime()
 	return String(hours) + ":" + String(minutes) + "." + String(seconds) + "." + String(mills) + "  ";
 }
 
+size_t SerialWrap::printf(const char * format, ...)
+{
+	char buf[256];
+	int len;
+
+	va_list ap;
+	va_start(ap, format);
+
+	len = vsnprintf(buf, 254, format, ap);	// this will null terminate if len < 254
+	if(len == 254)
+	{
+		Serial.print("printf String too long!");
+		buf[len] = 0;		// hard null terminate
+		buf[len+1] = 0;
+		len += 2;
+	}
+
+	println(buf);
+	
+	va_end(ap);
+	return len;
+}

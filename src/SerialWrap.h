@@ -25,6 +25,8 @@ public:
 	size_t println(int spout, int rng = DEC);
 	size_t println(double dout, int rng = 2);
 	size_t println(unsigned int spout, int rng = DEC);
+	size_t printf(const char * format, ...);
+	
 	bool available();
 	uint8_t read();
 	// for when serial isn't going to work...
