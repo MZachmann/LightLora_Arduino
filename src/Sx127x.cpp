@@ -84,6 +84,7 @@ static const StringPair DEFAULT_PARAMETERS[] = {{"frequency", 915}, {"tx_power_l
 									{"signal_bandwidth", 125000}, {"spreading_factor", 7},
 									{ "coding_rate", 5}, {"preamble_length", 8},
 					  				{"implicitHeader", 0}, {"sync_word", 0x12}, {"enable_CRC", 0},
+									{"power_pin", PA_OUTPUT_PA_BOOST_PIN},
 									{ StringPair::LastSP, 0}};
 
 int REQUIRED_VERSION = 0x12;
@@ -197,7 +198,13 @@ static Sx127x* _Singleton = NULL;
 		// set auto AGC
 		this->writeRegister(REG_MODEM_CONFIG_3, 0x04);
 
-		this->setTxPower(UseParam(params, "tx_power_level"));
+		int powerpin = UseParam(params, "power_pin");	// powerpin = PA_OUTPUT_PA_BOOST_PIN or PA_OUTPUT_RFO_PIN
+		if(powerpin != PA_OUTPUT_PA_BOOST_PIN && powerpin != PA_OUTPUT_RFO_PIN)
+		{
+			ASeries.printf("Invalid power_pin setting. Must be 0 or 1. It is = %d", powerpin);
+			powerpin = PA_OUTPUT_PA_BOOST_PIN; // ?
+		}
+		this->setTxPower(UseParam(params, "tx_power_level"), powerpin);
 		this->_ImplicitHeaderMode = false;
 		this->implicitHeaderMode(UseParam(params, "implicitHeader"));
 		this->setSpreadingFactor(UseParam(params, "spreading_factor"));

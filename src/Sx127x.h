@@ -48,6 +48,7 @@ class Sx127x
 	// they are option name, value. Defaults are:
 	// {"frequency", 915}, {"tx_power_level", 2}, {"signal_bandwidth", 125000}, {"spreading_factor", 7},
 	// { "coding_rate", 5}, {"preamble_length", 8}, {"implicitHeader", 0}, {"sync_word", 0x12}, {"enable_CRC", 0},
+	// {"power_pin", PA_OUTPUT_PA_BOOST_PIN}
 		bool init(const StringPair* parameters =NULL);			// must be called first. Returns false if not detected
 		void setReceiver(LoraReceiver* receiver);			// use a receiver class on interrupts
 		const String& lastError();							// get the last error message if there was one during interrupt
