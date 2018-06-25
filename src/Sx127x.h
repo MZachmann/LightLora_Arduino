@@ -46,12 +46,16 @@ class Sx127x
 		
 	// parameters is a list of StringPairs ending with { StringPair::LastSP, 0}
 	// they are option name, value. Defaults are:
-	// {"frequency", 915}, {"tx_power_level", 2}, {"signal_bandwidth", 125000}, {"spreading_factor", 7},
+	// {"frequency", 915}, 			# frequency in MHz
+	// {"tx_power_level", 2},   	# power level. 0...14 or 2...17
+	// {"signal_bandwidth", 125000},    # signal bandwidth in Hz
+	// {"spreading_factor", 7},		# width of signal
 	// { "coding_rate", 5}, {"preamble_length", 8}, {"implicitHeader", 0}, {"sync_word", 0x12}, {"enable_CRC", 0},
 	// {"power_pin", PA_OUTPUT_PA_BOOST_PIN}
 		bool init(const StringPair* parameters =NULL);			// must be called first. Returns false if not detected
 		void setReceiver(LoraReceiver* receiver);			// use a receiver class on interrupts
 		const String& lastError();							// get the last error message if there was one during interrupt
+		void clearLastError();								// clear the prior error message
 
 		void beginPacket(bool implicitHeaderMode=false);	// call before sending a packet
 		void endPacket(); 									// call after filling the fifo to send the packet
@@ -63,6 +67,7 @@ class Sx127x
 		float packetSnr(); 									// get last packet Signal to noise ratio
 		void standby(); 									// put chip in standby
 		void sleep(); 										// put chip to sleep
+		uint8_t doCalibrate();								// run calibration
 		void setTxPower(int level, int outputPin=PA_OUTPUT_PA_BOOST_PIN);	// set the power level
 		void setFrequency(double frequency);				// set the transmit frequency (in Hz)
 		void setSpreadingFactor(int sf);					// set spread factor exponent (2**x)

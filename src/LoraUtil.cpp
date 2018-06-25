@@ -91,16 +91,30 @@ static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 		this->lora->Initialize(NULL, this->spic);
 		this->spic->initLoraPins(); // init pins and reset sx127x chip
 		this->lora->init(params);
+		uint8_t utemp = this->lora->doCalibrate();
+		ASeries.printf("Read lora temperature: %d", utemp);
 		// pass in the callback capability
 		this->lora->setReceiver(this);
 		// put into receive mode and wait for an interrupt
 		this->lora->receive();
 	}
 
-	String LoraUtil::getError()
+	void LoraUtil::SetFrequency(double newFreq)
+	{
+		this->lora->standby();	// must be in standby mode
+		delay(1); // let it
+		this->lora->setFrequency(newFreq);
+	}
+
+	String LoraUtil::getError(bool doClear)
 	{
 		// don't return the address, copy it so interrupts don't trash us
-		return this->lora->lastError();
+		String rslt = this->lora->lastError();
+		if(doClear)
+		{
+			this->lora->clearLastError();
+		}
+		return rslt;
 	}
 
 	void LoraUtil::Reset()
@@ -202,4 +216,9 @@ static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 		LoraPacket* pkt = this->packet;
 		this->packet = NULL;
 		return pkt;
+	}
+
+	void LoraUtil::DumpRegisters()
+	{
+		this->lora->dumpRegisters();
 	}

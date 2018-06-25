@@ -26,6 +26,7 @@ int REG_FRF_MSB = 0x06;
 int REG_FRF_MID = 0x07;
 int REG_FRF_LSB = 0x08;
 int REG_PA_CONFIG = 0x09;
+int REG_OCP = 0x0b;	// overcurrent
 int REG_LNA = 0x0c;
 int REG_FIFO_ADDR_PTR = 0x0d;
 
@@ -52,11 +53,15 @@ int REG_RSSI_WIDEBAND = 0x2c;
 int REG_DETECTION_OPTIMIZE = 0x31;
 int REG_DETECTION_THRESHOLD = 0x37;
 int REG_SYNC_WORD = 0x39;
+int REG_IMAGE_CAL = 0x3b;
+int REG_TEMP = 0x3c;		// temperature probe
 int REG_DIO_MAPPING_1 = 0x40;
 int REG_VERSION = 0x42;
+int REG_PA_DAC = 0x4d;
 
 // modes
-int MODE_LONG_RANGE_MODE = 0x80;  // bit 7: 1 => LoRa mode
+int MODE_LONG_RANGE_MODE = 0x80;  // Bitfield -> bit 7: 1 => LoRa mode
+//-
 int MODE_SLEEP = 0x00;
 int MODE_STDBY = 0x01;
 int MODE_TX = 0x03;
@@ -65,6 +70,24 @@ int MODE_RX_CONTINUOUS = 0x05;
 // 6 is not supported on the 1276
 int MODE_RX_SINGLE = 0x05;
  
+// fsk modes for calibration setting
+int MODE_SYNTHESIZER_TX = 0x02;
+int MODE_TRANSMITTER = 0x03;
+int MODE_SYNTHESIZER_RX = 0x04;
+int MODE_RECEIVER = 0x05;
+
+// calibration fields
+int IMAGECAL_AUTOIMAGECAL_MASK = 0x7F;
+int IMAGECAL_AUTOIMAGECAL_ON = 0x80;
+int IMAGECAL_AUTOIMAGECAL_OFF = 0x00; // Default
+int IMAGECAL_IMAGECAL_MASK = 0xBF;
+int IMAGECAL_IMAGECAL_START = 0x40;
+int IMAGECAL_IMAGECAL_RUNNING = 0x20;
+int IMAGECAL_TEMPTHRESHOLD_MASK = 0xF9;
+int IMAGECAL_TEMPMONITOR_MASK = 0xFE;
+int IMAGECAL_TEMPMONITOR_ON = 0x00; // Default
+int IMAGECAL_TEMPMONITOR_OFF = 0x01;
+
 // PA config
 int PA_BOOST = 0x80;
  
@@ -188,8 +211,8 @@ static Sx127x* _Singleton = NULL;
 		ASeries.println("Sleeping");
 
 		// config
-		int freq = UseParam(params, "frequency");	// get frequency as int in MHz
-		this->setFrequency((double)freq * 1E6);
+		double freq = 1E6 * (double)UseParam(params, "frequency");	// get frequency as int in MHz
+		this->setFrequency(freq);
 		this->setSignalBandwidth(UseParam(params, "signal_bandwidth"));
 
 		// set LNA boost
@@ -226,6 +249,11 @@ static Sx127x* _Singleton = NULL;
 	const String& Sx127x::lastError()
 	{
 		return this->_LastError;
+	}
+
+	void Sx127x::clearLastError()
+	{
+		this->_LastError = "";
 	}
 
 	// start sending a packet (reset the fifo address, go into standby)
@@ -381,9 +409,30 @@ static Sx127x* _Singleton = NULL;
 
 	// valid power levels are 0...14 if from normal outputPin
 	// and 2...17 if PA_BOOST
+	// Supply current in Transmit mode with impedance matching	
+	// RFOP = +20 dBm, on PA_BOOST  -- 120mA
+	// **RFOP = +17 dBm, on PA_BOOST -- 87mA
+	// RFOP = +13 dBm, on RFO_LF/HF pin -- 29mA
+	// RFOP = + 7 dBm, on RFO_LF/HF pin	-- 20mA
 	void Sx127x::setTxPower(int level, int outputPin)
 	{
-		ASeries.printf("Set transmit power to: %d", level);
+		ASeries.printf("Set transmit power to: %d at pin: %d", level, outputPin);
+
+		// I think the boosted system is power-limited by default
+		// so if boosted, bump the power max in the RegPaDac
+		if(outputPin == PA_OUTPUT_PA_BOOST_PIN && level > 14)
+		{
+			uint8_t dacSet = readRegister(REG_PA_DAC);	// see if 20dBm options
+			uint8_t newDac = dacSet | 7;
+			ASeries.printf("Set Dac value from %d to %d", (int)dacSet, (int)newDac);
+			writeRegister(REG_PA_DAC, newDac);
+			//
+			uint8_t ocpSet = readRegister(REG_OCP);	// default should be 0x1b
+			uint8_t newOcp = 0x10 + 18;		// 150mA [-30 + 10*value]
+			ASeries.printf("Increasing allowed current to 150mA");
+			writeRegister(REG_OCP, newOcp);
+		}
+
 		if (outputPin == PA_OUTPUT_RFO_PIN)
 		{
 			// RFO
@@ -408,7 +457,7 @@ static Sx127x* _Singleton = NULL;
 			{
 				level = 17;
 			}
-			this->writeRegister(REG_PA_CONFIG, PA_BOOST | (level - 2));
+			this->writeRegister(REG_PA_CONFIG, PA_BOOST | (level - 2));	// per spec the 0x70 bits are ignored in boost mode
 		}
 	}
 
@@ -687,5 +736,54 @@ static Sx127x* _Singleton = NULL;
 			ASeries.println( String(i) + ":" + String(this->readRegister(i)));
 				// "0x{0:02x}: {1:02x}".format(i, this->readRegister(i)));
 		}
+	}
+
+	// This calibrates the system and it reads the current
+	// chip temperature as an integer. Standard is around 242 at 25C.
+	// The manual says calibration should be done when frequency is set to other than default.
+	uint8_t Sx127x::doCalibrate()
+	{
+		int8_t temp = 0;
+		uint8_t previousOpMode;
+
+		// save current Operation mode
+		uint8_t prevOpMode = readRegister(REG_OP_MODE);
+		if(prevOpMode & MODE_LONG_RANGE_MODE)
+		{
+			// if lora mode, go to lora sleep
+			writeRegister(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_SLEEP);
+		}
+
+		writeRegister(REG_OP_MODE, MODE_SLEEP);	// put into fsk mode while sleeping
+		writeRegister(REG_OP_MODE, MODE_SYNTHESIZER_RX);	// put into fsk rf synth
+		uint8_t oldCal = readRegister(REG_IMAGE_CAL);
+		writeRegister(REG_IMAGE_CAL, (oldCal & IMAGECAL_TEMPMONITOR_MASK) | IMAGECAL_TEMPMONITOR_ON);	// turn on temp reading
+
+		delay(1);		// wait 1ms
+
+		// disable temp reading
+		writeRegister(REG_IMAGE_CAL, (oldCal & IMAGECAL_TEMPMONITOR_MASK) | IMAGECAL_TEMPMONITOR_OFF);	// turn off temp reading
+		writeRegister(REG_OP_MODE, MODE_SLEEP);		// put into fsk sleep mode
+		uint8_t tempr = readRegister(REG_TEMP);		// read the temperature
+
+		// as long as we're sleeping and at the right frequency, calibrate...
+		writeRegister(REG_OP_MODE, MODE_STDBY);		// put into fsk standby mode for image cal
+		writeRegister(REG_IMAGE_CAL, (oldCal & IMAGECAL_IMAGECAL_MASK) | IMAGECAL_IMAGECAL_START);	// start calibration
+		int ctr = 0;
+		while( IMAGECAL_IMAGECAL_RUNNING & readRegister(REG_IMAGE_CAL))
+		{
+			delay(1);
+			ctr++;
+		}
+		ASeries.printf("Delayed %dms while calibrating.", ctr);
+		writeRegister(REG_OP_MODE, MODE_SLEEP);		// put into fsk sleep mode
+
+		if(prevOpMode & MODE_LONG_RANGE_MODE)
+		{
+			writeRegister(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_SLEEP);	// switch back to Lora while sleeping
+		}
+
+		writeRegister(REG_OP_MODE, prevOpMode);		// now back to original mode
+		return tempr;
 	}
 

@@ -29,10 +29,13 @@ class LoraUtil : public LoraReceiver
 		LoraUtil(int pinSS, int pinRST, int pinINT, const StringPair* params = NULL);
 		LoraUtil();
 		void Initialize(int pinSS, int pinRST, int pinINT, const StringPair* params);
-		String getError();	// for errors that happened during interrupt
+		void SetFrequency(double newFreq);	// puts chip into standby first
+		String getError(bool doClear = false);		// for errors that happened during interrupt
 		void Reset();		// reset the device
 		void Sleep();		// sleep the device
 		void WaitForPacket();	// go into receive mode
+		// debug
+		void DumpRegisters();		// dump the sx1276 registers to serial
 		// send
 		void sendPacket(uint8_t dstAddress, uint8_t localAddress, TinyVector& outGoing);
 		void sendString(String& content);
