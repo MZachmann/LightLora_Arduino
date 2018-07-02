@@ -28,10 +28,10 @@ class LoraReceiver
 class StringPair
 {
 	public:
-		StringPair(const char* name, int value);
+		StringPair(const char* name, int32_t value);
 		static const char* LastSP;	// Last for string list
 		const char* Name;
-		const int Value;
+		const int32_t Value;
 };
 
 // the method prototype for what we pass to the interrupt handler
@@ -47,10 +47,12 @@ class Sx127x
 	// parameters is a list of StringPairs ending with { StringPair::LastSP, 0}
 	// they are option name, value. Defaults are:
 	// {"frequency", 915}, 			# frequency in MHz
+	// {"frequency_low", 0},		# remaining frequency in Hz
 	// {"tx_power_level", 2},   	# power level. 0...14 or 2...17
 	// {"signal_bandwidth", 125000},    # signal bandwidth in Hz
 	// {"spreading_factor", 7},		# width of signal
-	// { "coding_rate", 5}, {"preamble_length", 8}, {"implicitHeader", 0}, {"sync_word", 0x12}, {"enable_CRC", 0},
+	// { "coding_rate", 5}, 		# 4 / 5...8 as crc
+	// {"preamble_length", 8}, {"implicitHeader", 0}, {"sync_word", 0x12}, {"enable_CRC", 0},
 	// {"power_pin", PA_OUTPUT_PA_BOOST_PIN}
 		bool init(const StringPair* parameters =NULL);			// must be called first. Returns false if not detected
 		void setReceiver(LoraReceiver* receiver);			// use a receiver class on interrupts
@@ -69,7 +71,8 @@ class Sx127x
 		void sleep(); 										// put chip to sleep
 		uint8_t doCalibrate();								// run calibration
 		void setTxPower(int level, int outputPin=PA_OUTPUT_PA_BOOST_PIN);	// set the power level
-		void setFrequency(double frequency);				// set the transmit frequency (in Hz)
+		void setFrequency(double frequency);				// set the center frequency (in Hz)
+		void setFrequencyOffset(double frequency);			// set the frequency deviation
 		void setSpreadingFactor(int sf);					// set spread factor exponent (2**x)
 		void setSignalBandwidth(int sbw);					// set the signal bandwidth
 		void setCodingRate(int denominator);				// set coding rate denominator (num=4). 4,5,7,8
@@ -96,6 +99,7 @@ class Sx127x
 		int _IrqPin;				// the irq pin
 		bool _ImplicitHeaderMode;
 		double _Frequency;			// in Hz
+		double _FrequencyOffset;	// for temperature and static compensation
 		LoraReceiver* _LoraRcv;		// who we call on interrupt
 		SpiControl* _SpiControl;	// the SPI wrapper
 		TinyVector* _FifoBuf;		// a semi-persistant buffer

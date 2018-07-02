@@ -30,6 +30,7 @@ class LoraUtil : public LoraReceiver
 		LoraUtil();
 		void Initialize(int pinSS, int pinRST, int pinINT, const StringPair* params);
 		void SetFrequency(double newFreq);	// puts chip into standby first
+		void SetFrequencyOffset(int32_t offsetFreq);
 		String getError(bool doClear = false);		// for errors that happened during interrupt
 		void Reset();		// reset the device
 		void Sleep();		// sleep the device

@@ -4,7 +4,7 @@ This is yet another library for controlling an SX127x Semtech chip. This is enti
 
 For power usage, you can sleep the CPU while waiting for an interrupt during transmit and receive cycles.
 
-There is a nearly exact copy of this library in MicroPython here ??
+There is a nearly exact copy of this library in MicroPython here https://github.com/MZachmann/LightLora_MicroPython
 
 Installation
 --

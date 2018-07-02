@@ -106,6 +106,12 @@ static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 		this->lora->setFrequency(newFreq);
 	}
 
+	void LoraUtil::SetFrequencyOffset(int32_t offsetFreq)
+	{
+		double dox = offsetFreq;
+		this->lora->setFrequencyOffset(dox);
+	}
+
 	String LoraUtil::getError(bool doClear)
 	{
 		// don't return the address, copy it so interrupts don't trash us

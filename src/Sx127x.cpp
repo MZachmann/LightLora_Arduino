@@ -22,7 +22,7 @@ There's an exact copy in Micropython at ??
 // registers
 int REG_FIFO = 0x00;
 int REG_OP_MODE = 0x01;
-int REG_FRF_MSB = 0x06;
+int REG_FRF_MSB = 0x06;	// frequency setting
 int REG_FRF_MID = 0x07;
 int REG_FRF_LSB = 0x08;
 int REG_PA_CONFIG = 0x09;
@@ -103,9 +103,11 @@ int MAX_PKT_LENGTH = 255;
 static volatile bool IsRunning = false;
 
 // pass in non-default parameters for any/all options in the constructor parameters argument
-static const StringPair DEFAULT_PARAMETERS[] = {{"frequency", 915}, {"tx_power_level", 2}, 
+static const StringPair DEFAULT_PARAMETERS[] = {{"frequency", 915}, {"frequency_low",0},
+									{"tx_power_level", 2}, 
 									{"signal_bandwidth", 125000}, {"spreading_factor", 7},
 									{ "coding_rate", 5}, {"preamble_length", 8},
+									{"freq_offset", 0},
 					  				{"implicitHeader", 0}, {"sync_word", 0x12}, {"enable_CRC", 0},
 									{"power_pin", PA_OUTPUT_PA_BOOST_PIN},
 									{ StringPair::LastSP, 0}};
@@ -118,7 +120,7 @@ static Sx127x* _Singleton = NULL;
 // --------------------------------------------------------------------
 // StringPairs let us create the equivalent of a Python dictionary
 // --------------------------------------------------------------------
-	StringPair::StringPair(const char* name, int value) : Name(name), Value(value)
+	StringPair::StringPair(const char* name, int32_t value) : Name(name), Value(value)
 	{
 	}
 
@@ -178,7 +180,7 @@ static Sx127x* _Singleton = NULL;
 	}
 
 	// if we passed in a param use it, else use default
-	int UseParam(const StringPair* parameters, const char* whom)
+	int32_t UseParam(const StringPair* parameters, const char* whom)
 	{
 		int idx = IndexOfPair(parameters, whom);
 		if(-1 == idx)
@@ -210,9 +212,14 @@ static Sx127x* _Singleton = NULL;
 		this->sleep();
 		ASeries.println("Sleeping");
 
-		// config
+		// config set frequency offset before setting frequency
+		double freqOff = UseParam(params, "freq_offset");
+		this->setFrequencyOffset(freqOff);
+
 		double freq = 1E6 * (double)UseParam(params, "frequency");	// get frequency as int in MHz
-		this->setFrequency(freq);
+		double freqHz = (double)UseParam(params, "frequency_low");	// any remaining 0...999,999 Hz
+		this->setFrequency(freq + freqHz);
+
 		this->setSignalBandwidth(UseParam(params, "signal_bandwidth"));
 
 		// set LNA boost
@@ -426,7 +433,7 @@ static Sx127x* _Singleton = NULL;
 			uint8_t newDac = dacSet | 7;
 			ASeries.printf("Set Dac value from %d to %d", (int)dacSet, (int)newDac);
 			writeRegister(REG_PA_DAC, newDac);
-			//
+			// increase overcurrent max
 			uint8_t ocpSet = readRegister(REG_OCP);	// default should be 0x1b
 			uint8_t newOcp = 0x10 + 18;		// 150mA [-30 + 10*value]
 			ASeries.printf("Increasing allowed current to 150mA");
@@ -466,9 +473,9 @@ static Sx127x* _Singleton = NULL;
 	// FSTEP = FXOSC/2**19 where FXOSC=32MHz. So FSTEP==61.03515625
 	void Sx127x::setFrequency(double frequency)
 	{
-		ASeries.printf("Set frequency to: %g", frequency);
+		ASeries.printf("Set frequency to: %12g with offset %g", frequency, _FrequencyOffset);
 		this->_Frequency = frequency;
-		uint32_t stepf = (uint32_t)(frequency / 61.03515625);	// get 24 bits of freq/step
+		uint32_t stepf = (uint32_t)((frequency+_FrequencyOffset) / 61.03515625);	// get 24 bits of freq/step
 		uint8_t frfs[3];
 		frfs[0] = 0xff & (stepf>>16);
 		frfs[1] = 0xff & (stepf>>8);
@@ -477,6 +484,19 @@ static Sx127x* _Singleton = NULL;
 		this->writeRegister(REG_FRF_MSB, frfs[0]);
 		this->writeRegister(REG_FRF_MID, frfs[1]);
 		this->writeRegister(REG_FRF_LSB, frfs[2]);
+	}
+
+	// this is a simple way to adjust for crystal inaccuracy
+	// set this and it's offset as a constant to the frequency settings
+	// (optional)
+	void Sx127x::setFrequencyOffset(double offset)
+	{
+		ASeries.printf("Set frequency offset to: %g", offset);
+		_FrequencyOffset = offset;
+		if(_Frequency != 0)
+		{
+			setFrequency(_Frequency);
+		}
 	}
 
 	void Sx127x::setSpreadingFactor(int sf)
