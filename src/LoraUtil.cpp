@@ -228,3 +228,13 @@ static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 	{
 		this->lora->dumpRegisters();
 	}
+
+	uint32_t LoraUtil::GetLastReceivedTime(void)
+	{
+		return this->lora->getLastReceivedTime();
+	}
+
+	uint32_t LoraUtil::GetLastSentTime(void)
+	{
+		return this->lora->getLastSentTime();
+	}

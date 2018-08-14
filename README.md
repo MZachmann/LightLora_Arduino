@@ -17,7 +17,7 @@ During setup call
 StringPair parameters[] = {{"enable_CRC", 1}, { StringPair::LastSP, 0}}; // example
 LoraUtil* lru = new LoraUtil(pinSS, pinRST, pinINT, parameters);
 ```
-Where parameters may be NULL for defaults or an array of StringPairs terminated by StringPair::LastSP.
+Where parameters may be NULL for defaults or an array of StringPairs terminated by StringPair::LastSP. Any parameters not set in the passed-in group will be set to default (see DEFAULT_PARAMETERS).
 
 During the loop you can
 ```c++
@@ -38,7 +38,7 @@ There is a `BlinkLed` routine in the ino that needs a pin value for the on-board
 
 The `SPI` device is run with no choices for pin assignment, as seems to be typical.
 
-The LoraUtil object is a LoraReceiver;  it has callbacks for transmit and receive that can easily changed.
+The LoraUtil object is a LoraReceiver;  it has callbacks for transmit and receive that can be easily changed.
 
 Cautions
 ---

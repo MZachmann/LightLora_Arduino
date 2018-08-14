@@ -163,7 +163,7 @@ static Sx127x* _Singleton = NULL;
 	}
 
 	/// Standard SX127x library. Requires an spicontrol.SpiControl instance for spiControl
-	Sx127x::Sx127x() : _FifoBuf(NULL), _SpiControl(NULL), _LoraRcv(NULL)
+	Sx127x::Sx127x() : _FifoBuf(NULL), _SpiControl(NULL), _LoraRcv(NULL), _LastSentTime(0), _LastReceivedTime(0)
 	{
 
 	}
@@ -175,6 +175,8 @@ static Sx127x* _Singleton = NULL;
 		this->_SpiControl = spic;   	// the spi wrapper - see spicontrol.py
 		this->_IrqPin = spic->getIrqPin(); // a way to need loracontrol only in spicontrol
 		this->_FifoBuf = new TinyVector(0, 30);	// our sorta persistent buffer
+		this->_LastSentTime = 0;
+		this->_LastReceivedTime = 0;
 		_Singleton = this;				// yuck... but required for interrupt handler
 		ASeries.println("Finish Sx127x construction.");
 	}
@@ -366,6 +368,16 @@ static Sx127x* _Singleton = NULL;
 		int irqFlags = this->readRegister(REG_IRQ_FLAGS);
 		this->writeRegister(REG_IRQ_FLAGS, irqFlags);	// clear IRQs
 		return irqFlags;
+	}
+
+	uint32_t Sx127x::getLastReceivedTime(void)
+	{
+		return this->_LastReceivedTime;
+	}
+
+	uint32_t Sx127x::getLastSentTime(void)
+	{
+		return this->_LastSentTime;
 	}
 
 	// this returns real (not packet) rssi
@@ -624,6 +636,7 @@ static Sx127x* _Singleton = NULL;
 			 (this->_LoraRcv != NULL) )
 			{
 				// it's a receive data ready interrupt
+				this->_LastReceivedTime = millis();
 				this->ReadPayload(payload);
 				this->acquire_lock(false);	 // unlock when done reading
 				this->_LoraRcv->_doReceive(&payload);
@@ -667,6 +680,7 @@ static Sx127x* _Singleton = NULL;
 		if (irqFlags & IRQ_TX_DONE_MASK)
 		{
 			// it's a transmit finish interrupt
+			this->_LastSentTime = millis();
 			this->PrepIrqHandler(NULL);	   // disable handler since we're done
 			if (this->_LoraRcv)
 			{

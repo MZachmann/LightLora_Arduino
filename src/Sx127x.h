@@ -65,6 +65,8 @@ class Sx127x
 		int writeFifo(const uint8_t* buffer, int size);		// write bytes to the fifo
 		void acquire_lock(bool lock=false);					// lock and unlock
 		uint8_t getIrqFlags(); 								// read the irq flags and clear them by writing them
+		uint32_t getLastReceivedTime(void);					// when last got an interrupt
+		uint32_t getLastSentTime(void);						// when last got an interrupt
 		int packetRssi(); 									// get last packet rssi
 		float packetSnr(); 									// get last packet Signal to noise ratio
 		void standby(); 									// put chip in standby
@@ -100,6 +102,8 @@ class Sx127x
 		bool _ImplicitHeaderMode;
 		double _Frequency;			// in Hz
 		double _FrequencyOffset;	// for temperature and static compensation
+		uint32_t _LastReceivedTime;	// last receive interrupt time in milliseconds
+		uint32_t _LastSentTime;		// last send interrupt time in milliseconds
 		LoraReceiver* _LoraRcv;		// who we call on interrupt
 		SpiControl* _SpiControl;	// the SPI wrapper
 		TinyVector* _FifoBuf;		// a semi-persistant buffer

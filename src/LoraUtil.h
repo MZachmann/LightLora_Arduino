@@ -37,6 +37,8 @@ class LoraUtil : public LoraReceiver
 		void WaitForPacket();	// go into receive mode
 		// debug
 		void DumpRegisters();		// dump the sx1276 registers to serial
+		uint32_t GetLastReceivedTime(void);
+		uint32_t GetLastSentTime(void);
 		// send
 		void sendPacket(uint8_t dstAddress, uint8_t localAddress, TinyVector& outGoing);
 		void sendString(String& content);
