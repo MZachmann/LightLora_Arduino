@@ -426,8 +426,9 @@ static Sx127x* _Singleton = NULL;
 		this->writeRegister(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_SLEEP);
 	}
 
+	// set output power in dBm
 	// valid power levels are 0...14 if from normal outputPin
-	// and 2...17 if PA_BOOST
+	// and 2...20 if PA_BOOST
 	// Supply current in Transmit mode with impedance matching	
 	// RFOP = +20 dBm, on PA_BOOST  -- 120mA
 	// **RFOP = +17 dBm, on PA_BOOST -- 87mA
@@ -439,22 +440,37 @@ static Sx127x* _Singleton = NULL;
 
 		// I think the boosted system is power-limited by default
 		// so if boosted, bump the power max in the RegPaDac
-		if(outputPin == PA_OUTPUT_PA_BOOST_PIN && level > 14)
+		if(outputPin == PA_OUTPUT_PA_BOOST_PIN)
 		{
-			uint8_t dacSet = readRegister(REG_PA_DAC);	// see if 20dBm options
-			uint8_t newDac = dacSet | 7;
-			ASeries.printf("Set Dac value from %d to %d", (int)dacSet, (int)newDac);
-			writeRegister(REG_PA_DAC, newDac);
-			// increase overcurrent max
-			uint8_t ocpSet = readRegister(REG_OCP);	// default should be 0x1b
-			uint8_t newOcp = 0x10 + 18;		// 150mA [-30 + 10*value]
-			ASeries.printf("Increasing allowed current to 150mA");
-			writeRegister(REG_OCP, newOcp);
+			if(level > 17)
+			{
+				uint8_t dacSet = readRegister(REG_PA_DAC);	// retain existing upper bits
+				uint8_t newDac = dacSet | 7;				// allow pa up to 20dBm
+				ASeries.printf("Set PaDac value from %d to %d", (int)dacSet, (int)newDac);
+				writeRegister(REG_PA_DAC, newDac);
+
+				// increase overcurrent max - requires short duty cycle
+				uint8_t newOcp = 0x20 + 18;		// 150mA [-30 + 10*value]
+				ASeries.printf("Increasing allowed current to 150mA");
+				writeRegister(REG_OCP, newOcp);
+			}
+			else
+			{
+				uint8_t dacSet = readRegister(REG_PA_DAC);	// retain existing upper bits
+				uint8_t newDac = (dacSet & ~7) | 4;			// do not allow 20dBm
+				ASeries.printf("Set Dac value from %d to %d", (int)dacSet, (int)newDac);
+				writeRegister(REG_PA_DAC, newDac);
+
+				// set default overcurrent max
+				uint8_t newOcp = 11;		// 100mA [45 + 5*value]
+				ASeries.printf("Setting allowed current to 100mA");
+				writeRegister(REG_OCP, newOcp);
+			}
 		}
 
 		if (outputPin == PA_OUTPUT_RFO_PIN)
 		{
-			// RFO
+			// RFO pin. Max of +14dBm
 			if(level < 0)
 			{
 				level = 0;
@@ -467,16 +483,25 @@ static Sx127x* _Singleton = NULL;
 		}
 		else
 		{
-			// PA BOOST
+			// PA BOOST pin
 			if(level < 2)
 			{
 				level = 2;
 			}
-			else if(level > 17)
+			else if(level > 20)
 			{
-				level = 17;
+				level = 20;
 			}
-			this->writeRegister(REG_PA_CONFIG, PA_BOOST | (level - 2));	// per spec the 0x70 bits are ignored in boost mode
+			// normalize to 0...15
+			if( level > 17)
+			{
+				level = level - 5;		// above 17 we've set additional boost in the REG_PA_DAC
+			}
+			else
+			{
+				level = level -2;
+			}
+			this->writeRegister(REG_PA_CONFIG, PA_BOOST | level);	// per spec the 0x70 bits are ignored in boost mode
 		}
 	}
 
