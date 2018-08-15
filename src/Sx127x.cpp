@@ -222,13 +222,14 @@ static Sx127x* _Singleton = NULL;
 		double freqHz = (double)UseParam(params, "frequency_low");	// any remaining 0...999,999 Hz
 		this->setFrequency(freq + freqHz);
 
+		// set auto AGC for LNA gain. do this before setting bandwidth,spreading factor
+		// since they set the low-data-rate flag bit in the same register
+		this->writeRegister(REG_MODEM_CONFIG_3, 0x04);
+
 		this->setSignalBandwidth(UseParam(params, "signal_bandwidth"));
 
 		// set LNA boost
 		this->writeRegister(REG_LNA, this->readRegister(REG_LNA) | 0x03);
-
-		// set auto AGC
-		this->writeRegister(REG_MODEM_CONFIG_3, 0x04);
 
 		int powerpin = UseParam(params, "power_pin");	// powerpin = PA_OUTPUT_PA_BOOST_PIN or PA_OUTPUT_RFO_PIN
 		if(powerpin != PA_OUTPUT_PA_BOOST_PIN && powerpin != PA_OUTPUT_RFO_PIN)
@@ -540,16 +541,18 @@ static Sx127x* _Singleton = NULL;
 	{
 		ASeries.printf("Set spreading factor to: %d", sf);
 		sf = min(max(sf, 6), 12);
+		_SpreadingFactor = sf;
 		this->writeRegister(REG_DETECTION_OPTIMIZE, (sf == 6) ? 0xc5 : 0xc3);
 		this->writeRegister(REG_DETECTION_THRESHOLD, (sf == 6) ? 0x0c : 0x0a);
 		this->writeRegister(REG_MODEM_CONFIG_2, (this->readRegister(REG_MODEM_CONFIG_2) & 0x0f) | ((sf << 4) & 0xf0));
+		setLowDataRate();		// set the low-data-rate flag
 	}
 
 	void Sx127x::setSignalBandwidth(int sbw)
 	{
 		ASeries.printf("Set sbw to: %d", sbw);
-		int bins[] = {7800, 10400, 15600, 20800, 31250, 41700, 62500, 125000, 250000};
-		int bw = 9;
+		int bins[] = {7800, 10400, 15600, 20800, 31250, 41700, 62500, 125000, 250000, 500000};
+		int bw = 9;		// default to 500K
 		for (int i=0; i<ARRAY_SIZE(bins); i++)
 		{
 			if (sbw <= bins[i])
@@ -558,7 +561,9 @@ static Sx127x* _Singleton = NULL;
 				break;
 			}
 		}
+		_SignalBandwidth = bins[bw];
 		this->writeRegister(REG_MODEM_CONFIG_1, (this->readRegister(REG_MODEM_CONFIG_1) & 0x0f) | (bw << 4));
+		setLowDataRate();		// set the low-data-rate flag
 	}
 
 	void Sx127x::setCodingRate(int denominator)
@@ -795,6 +800,17 @@ static Sx127x* _Singleton = NULL;
 			ASeries.println( String(i) + ":" + String(this->readRegister(i)));
 				// "0x{0:02x}: {1:02x}".format(i, this->readRegister(i)));
 		}
+	}
+
+	// the low data rate flag must be set dependent on the symbol duration > 16ms per spec
+	void Sx127x::setLowDataRate()
+	{
+		// get symbol duration in ms. Spreading factor max=12 so bw/(2**sf) > 6
+		uint16_t symbolDuration = 1000 / ( _SignalBandwidth / (1L << _SpreadingFactor) ); 
+		uint8_t config3 = readRegister(REG_MODEM_CONFIG_3); 
+		bitWrite(config3, 3, symbolDuration > 16); 	// set the flag on iff >16ms symbol duration
+		ASeries.printf("Set low data rate flag register: %d", config3);
+		writeRegister(REG_MODEM_CONFIG_3, config3); 
 	}
 
 	// This calibrates the system and it reads the current

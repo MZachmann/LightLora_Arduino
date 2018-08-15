@@ -100,6 +100,8 @@ class Sx127x
 		String _LastError;
 		int _IrqPin;				// the irq pin
 		bool _ImplicitHeaderMode;
+		uint8_t	_SpreadingFactor;	// the spreading factor setting
+		uint32_t _SignalBandwidth;	// the signal bandwidth
 		double _Frequency;			// in Hz
 		double _FrequencyOffset;	// for temperature and static compensation
 		uint32_t _LastReceivedTime;	// last receive interrupt time in milliseconds
