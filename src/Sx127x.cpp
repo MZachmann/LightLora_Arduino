@@ -163,7 +163,7 @@ static Sx127x* _Singleton = NULL;
 	}
 
 	/// Standard SX127x library. Requires an spicontrol.SpiControl instance for spiControl
-	Sx127x::Sx127x() : _FifoBuf(NULL), _SpiControl(NULL), _LoraRcv(NULL), _LastSentTime(0), _LastReceivedTime(0)
+	Sx127x::Sx127x() : _FifoBuf(NULL), _SpiControl(NULL), _LoraRcv(NULL), _LastSentTime(0), _LastReceivedTime(0), _IrqFunction(nullptr)
 	{
 
 	}
@@ -177,6 +177,7 @@ static Sx127x* _Singleton = NULL;
 		this->_FifoBuf = new TinyVector(0, 30);	// our sorta persistent buffer
 		this->_LastSentTime = 0;
 		this->_LastReceivedTime = 0;
+		this->PrepIrqHandler(Sx127x::HandleInterrupt);		// call this once to set the interrupt handler
 		_Singleton = this;				// yuck... but required for interrupt handler
 		ASeries.println("Finish Sx127x construction.");
 	}
@@ -285,12 +286,12 @@ static Sx127x* _Singleton = NULL;
 		if (this->_LoraRcv)
 		{
 		   // enable tx to raise DIO0
-			this->PrepIrqHandler(Sx127x::HandleOnTransmit);		   // attach handler
+			_IrqFunction = &Sx127x::TransmitSub;
 			this->writeRegister(REG_DIO_MAPPING_1, 0x40);		   // enable transmit dio0
 		}
 		else
 		{
-			this->PrepIrqHandler(NULL);							// no handler
+			_IrqFunction = nullptr;
 		}
 		// put in TX mode
 		this->writeRegister(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_TX);
@@ -639,12 +640,12 @@ static Sx127x* _Singleton = NULL;
 		// enable rx to raise DIO0
 		if (this->_LoraRcv)
 		{
-			this->PrepIrqHandler(Sx127x::HandleOnReceive);			// attach handler
+			_IrqFunction = &Sx127x::ReceiveSub;
 			this->writeRegister(REG_DIO_MAPPING_1, 0x00);
 		}
 		else
 		{
-			this->PrepIrqHandler(NULL);							// no handler
+			_IrqFunction = nullptr;
 		}
 		// The last packet always starts at FIFO_RX_CURRENT_ADDR
 		// no need to reset FIFO_ADDR_PTR
@@ -692,14 +693,6 @@ static Sx127x* _Singleton = NULL;
 		}
 	}
 
-	// got a receive interrupt, handle it
-	// a static method to receive the interrupt, so this uses _Singleton to call an intance method
-	void Sx127x::HandleOnReceive(void)
-	{
-		if(_Singleton)
-			_Singleton->ReceiveSub();
-	}
-
 	// called by the static transmit interrupt handler
 	void Sx127x::TransmitSub(void)
 	{
@@ -711,7 +704,7 @@ static Sx127x* _Singleton = NULL;
 		{
 			// it's a transmit finish interrupt
 			this->_LastSentTime = millis();
-			this->PrepIrqHandler(NULL);	   // disable handler since we're done
+			_IrqFunction = nullptr;		// no one to call right now
 			if (this->_LoraRcv)
 			{
 				this->_LoraRcv->_doTransmit();
@@ -727,11 +720,20 @@ static Sx127x* _Singleton = NULL;
 		}
 	}
 
-	// a static method to receive the interrupt, so this uses _Singleton to call an intance method
-	void Sx127x::HandleOnTransmit(void)
+	// a static method to receive the interrupt, so this uses _Singleton to call an instance method
+	void Sx127x::HandleInterrupt(void)
 	{
 		if(_Singleton)
-			_Singleton->TransmitSub();
+			_Singleton->LocalInterrupt();
+	}
+
+	// called during interrupt to call the local interrupt function
+	void Sx127x::LocalInterrupt()
+	{
+		if(_IrqFunction)
+		{
+			(this->*_IrqFunction)();	// TransmitSub or ReceiveSub
+		}
 	}
 
 	// check to see if we have a received packet pending (synchronous)

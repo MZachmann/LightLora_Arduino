@@ -112,7 +112,7 @@ static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 		this->lora->setFrequencyOffset(dox);
 	}
 
-	String LoraUtil::getError(bool doClear)
+	String LoraUtil::GetError(bool doClear)
 	{
 		// don't return the address, copy it so interrupts don't trash us
 		String rslt = this->lora->lastError();
@@ -166,7 +166,7 @@ static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 		this->lora->receive(); // wait for a packet (?)
 	}
 
-	bool LoraUtil::isPacketSent(bool forceClear)
+	bool LoraUtil::IsPacketSent(bool forceClear)
 	{
 		bool dt = this->doneTransmit;
 		if(forceClear)
@@ -187,7 +187,7 @@ static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 		this->lora->receive();
 	}
 
-	void LoraUtil::sendPacket(uint8_t dstAddress, uint8_t localAddress, TinyVector& outGoing)
+	void LoraUtil::SendPacket(uint8_t dstAddress, uint8_t localAddress, TinyVector& outGoing)
 	{
 		// send a packet of header info and a bytearray to dstAddress
 		this->linecounter = this->linecounter + 1;
@@ -202,21 +202,21 @@ static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 	}
 
 	// send a string. use hardcoded src, dst address
-	void LoraUtil::sendString(String& Content)
+	void LoraUtil::SendString(String& Content)
 	{
 		int l = Content.length();
 		TinyVector tv(l, 1);		// leave room for the null so toCharArray is happy
 		Content.toCharArray((char*)tv.Data(), l+1);
-		sendPacket(0xff, 0x41, tv);	// don't send the null, though
+		SendPacket(0xff, 0x41, tv);	// don't send the null, though
 	}
 
-	bool LoraUtil::isPacketAvailable()
+	bool LoraUtil::IsPacketAvailable()
 	{
 		return (this->packet!=NULL) ? true : false;
 	}
 
 	// returns the current packet, which must be deleted by the caller
-	LoraPacket* LoraUtil::readPacket()
+	LoraPacket* LoraUtil::ReadPacket()
 	{
 		// return the current packet (or none) and clear it out
 		LoraPacket* pkt = this->packet;

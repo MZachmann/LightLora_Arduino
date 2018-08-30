@@ -63,7 +63,7 @@ void setup()
 // if an error happened during interrupt, print and log it
 void ifPrintLru(const char* prefix)
 {
-	String sub = _Lru->getError();
+	String sub = _Lru->GetError();
 	if(sub.length() > 0)
 	{
 		ASeries.println(prefix + sub);
@@ -88,9 +88,9 @@ void BlinkLed(bool onOff)
 void loop()
 {
 	// if we've received a packet, read it and respond to it
-	if( _Lru->isPacketAvailable())
+	if( _Lru->IsPacketAvailable())
 	{
-		LoraPacket* pkt = _Lru->readPacket();
+		LoraPacket* pkt = _Lru->ReadPacket();
 		ifPrintLru("Receive pkt error: ");
 		if(pkt != NULL)
 		{
@@ -102,7 +102,7 @@ void loop()
 				String sending = "U" + String(pkt->rssi)+"." + String(pkt->snr) + "." + String(packetnum);
 				delay(200);					// let the other side switch to receive mode
 				_DidPrintError = false;		// allow print of next error
-				_Lru->sendString(sending);
+				_Lru->SendString(sending);
 				ASeries.println("Sent: " + sending);
 				packetnum = packetnum + 1;
 			}
@@ -119,7 +119,7 @@ void loop()
 		String sending = "Wake Up";
 		ASeries.println("Sending: " + sending);
 		_DidPrintError = false;
-		_Lru->sendString(sending);
+		_Lru->SendString(sending);
 		_SendTime = millis();
 	}
 	else

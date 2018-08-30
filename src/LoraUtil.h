@@ -31,7 +31,7 @@ class LoraUtil : public LoraReceiver
 		void Initialize(int pinSS, int pinRST, int pinINT, const StringPair* params);
 		void SetFrequency(double newFreq);	// puts chip into standby first
 		void SetFrequencyOffset(int32_t offsetFreq);
-		String getError(bool doClear = false);		// for errors that happened during interrupt
+		String GetError(bool doClear = false);		// for errors that happened during interrupt
 		void Reset();		// reset the device
 		void Sleep();		// sleep the device
 		void WaitForPacket();	// go into receive mode
@@ -40,12 +40,12 @@ class LoraUtil : public LoraReceiver
 		uint32_t GetLastReceivedTime(void);
 		uint32_t GetLastSentTime(void);
 		// send
-		void sendPacket(uint8_t dstAddress, uint8_t localAddress, TinyVector& outGoing);
-		void sendString(String& content);
-		bool isPacketSent(bool forceClear = false);		// asynchronous transmit flag
+		void SendPacket(uint8_t dstAddress, uint8_t localAddress, TinyVector& outGoing);
+		void SendString(String& content);
+		bool IsPacketSent(bool forceClear = false);		// asynchronous transmit flag
 		// receive
-		LoraPacket* readPacket();
-		bool isPacketAvailable();
+		LoraPacket* ReadPacket();
+		bool IsPacketAvailable();
 		// these are public for use only by interrupt handler
 		virtual void _doReceive(TinyVector* payload);
 		virtual void _doTransmit();

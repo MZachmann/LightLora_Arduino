@@ -37,6 +37,9 @@ class StringPair
 // the method prototype for what we pass to the interrupt handler
 typedef void (*InterruptFn)(void);
 
+class Sx127x;
+typedef void (Sx127x::*LocalInterruptFn)(void);
+
 class Sx127x
 {
 	public:
@@ -88,13 +91,16 @@ class Sx127x
 		void ReadPayload(TinyVector& tv);					// read the payload from the rcvd packet
 		uint8_t readRegister(uint8_t address);				// read an sx127x register
 		void writeRegister(uint8_t address, uint8_t value);	// write to an sx127x register
+		void setLowDataRate();								// set the low data rate flag based on symbol duration
 	private:
-		void PrepIrqHandler(InterruptFn handlefn);
-		void ReceiveSub();
-		static void HandleOnReceive();		// called by interrupt
-		void TransmitSub();
-		static void HandleOnTransmit();		// called by interrupt
+		// these all deals with interrupts
+		void PrepIrqHandler(InterruptFn handlefn);		// set the hardware interrupt handler
+		static void HandleInterrupt();		// which points to this always
+		void LocalInterrupt();				// which calls this always...
+		void ReceiveSub();					// is called on receive packet
+		void TransmitSub();					// is called on packet sent
 
+		// properties
 		bool _Lock;
 		String _Name;
 		String _LastError;
@@ -109,6 +115,7 @@ class Sx127x
 		LoraReceiver* _LoraRcv;		// who we call on interrupt
 		SpiControl* _SpiControl;	// the SPI wrapper
 		TinyVector* _FifoBuf;		// a semi-persistant buffer
+		LocalInterruptFn _IrqFunction; // who to call on interrupt
 };
 
 #endif
