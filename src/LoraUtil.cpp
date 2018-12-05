@@ -91,12 +91,21 @@ static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 		this->lora->Initialize(NULL, this->spic);
 		this->spic->initLoraPins(); // init pins and reset sx127x chip
 		this->lora->init(params);
+		this->dstAddress = 0x41;
+		this->localAddress = 0x41;
+
 		uint8_t utemp = this->lora->doCalibrate();
 		ASeries.printf("Read lora temperature: %d", utemp);
 		// pass in the callback capability
 		this->lora->setReceiver(this);
 		// put into receive mode and wait for an interrupt
 		this->lora->receive();
+	}
+
+	void LoraUtil::SetAddresses(uint8_t destAddress, uint8_t myAddress)
+	{
+		this->dstAddress = destAddress;
+		this->localAddress = myAddress;
 	}
 
 	void LoraUtil::SetFrequency(double newFreq)
@@ -136,6 +145,18 @@ static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 	// we received a packet, deal with it
 	void LoraUtil::_doReceive(TinyVector* pay)
 	{
+		// check that it's for us...
+		if (pay!=NULL && pay->Size() > 1)
+		{
+			uint8_t* repay = pay->Data();
+			auto dstaddr = repay[0];
+			// allow an address of zero for all
+			if(dstAddress != 0xff && dstAddress != this->localAddress)
+			{
+				ASeries.printf("Received packet for %d, I am %d", (int)dstaddr, (int)this->localAddress);
+				return;		// ignore this result, it's not for us
+			}
+		}
 		if(this->packet)
 		{
 			delete this->packet;
@@ -145,8 +166,8 @@ static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 		{
 			LoraPacket* pkt = new LoraPacket();
 			uint8_t* repay = pay->Data();
-			pkt->srcAddress = repay[0];
-			pkt->dstAddress = repay[1];
+			pkt->dstAddress = repay[0];
+			pkt->srcAddress = repay[1];
 			pkt->srcLineCount = repay[2];
 			pkt->payLength = repay[3];
 			pkt->snr = this->lora->packetSnr();			// real snr, calced from the packetSnr value
@@ -163,7 +184,7 @@ static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 	void LoraUtil::_doTransmit()
 	{
 		this->doneTransmit = true;
-		this->lora->receive(); // wait for a packet (?)
+		// this->lora->receive(); // wait for a packet (?)
 	}
 
 	bool LoraUtil::IsPacketSent(bool forceClear)
@@ -191,8 +212,8 @@ static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 	{
 		// send a packet of header info and a bytearray to dstAddress
 		this->linecounter = this->linecounter + 1;
-		this->doneTransmit = false;
 		this->lora->beginPacket();
+		this->doneTransmit = false;				// do this after beginpacket because it clears the irq
 		this->writeInt(dstAddress);				// four byte header
 		this->writeInt(localAddress);
 		this->writeInt(this->linecounter);
@@ -207,7 +228,7 @@ static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 		int l = Content.length();
 		TinyVector tv(l, 1);		// leave room for the null so toCharArray is happy
 		Content.toCharArray((char*)tv.Data(), l+1);
-		SendPacket(0xff, 0x41, tv);	// don't send the null, though
+		SendPacket(this->dstAddress, this->localAddress, tv);	// don't send the null, though
 	}
 
 	bool LoraUtil::IsPacketAvailable()

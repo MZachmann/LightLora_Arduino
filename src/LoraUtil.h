@@ -42,6 +42,7 @@ class LoraUtil : public LoraReceiver
 		// send
 		void SendPacket(uint8_t dstAddress, uint8_t localAddress, TinyVector& outGoing);
 		void SendString(String& content);
+		void SetAddresses(uint8_t dstAddress, uint8_t localAddress);		// define the device after initialize
 		bool IsPacketSent(bool forceClear = false);		// asynchronous transmit flag
 		// receive
 		LoraPacket* ReadPacket();
@@ -58,6 +59,8 @@ class LoraUtil : public LoraReceiver
 		int linecounter;
 		LoraPacket* packet;
 		volatile bool doneTransmit;
+		uint8_t dstAddress;
+		uint8_t localAddress;
 
 		// init spi
 		SpiControl* spic;

@@ -270,6 +270,7 @@ static Sx127x* _Singleton = NULL;
 	// start sending a packet (reset the fifo address, go into standby)
 	void Sx127x::beginPacket(bool implicitHeaderMode)
 	{
+		_IrqFunction = nullptr;	// this isn't necessary but if things go wrong it helps with debug
 		this->standby();
 		this->implicitHeaderMode(implicitHeaderMode);
 		// reset FIFO address and paload length
@@ -481,7 +482,7 @@ static Sx127x* _Singleton = NULL;
 			{
 				level = 14;
 			}
-			this->writeRegister(REG_PA_CONFIG, 0x70 | level);
+			this->writeRegister(REG_PA_CONFIG, 0x70 | level);	// set Pmax=15dBm and Pout=PaConfig[0:4]=level
 		}
 		else
 		{
@@ -497,11 +498,11 @@ static Sx127x* _Singleton = NULL;
 			// normalize to 0...15
 			if( level > 17)
 			{
-				level = level - 5;		// above 17 we've set additional boost in the REG_PA_DAC
+				level = level - 5;		// above 17 adds (?) +3 boost in the REG_PA_DAC. Pout=5+PaConfig[0:4]
 			}
 			else
 			{
-				level = level -2;
+				level = level - 2;		// <= 17 and Pout=2+PaConfig[0:4] (dBm)
 			}
 			this->writeRegister(REG_PA_CONFIG, PA_BOOST | level);	// per spec the 0x70 bits are ignored in boost mode
 		}
@@ -759,12 +760,16 @@ static Sx127x* _Singleton = NULL;
 			// automatically standby when RX_DONE
 			return true;
 		}
-		else if (this->readRegister(REG_OP_MODE) != (MODE_LONG_RANGE_MODE | MODE_RX_SINGLE))
+		else 
 		{
-			// no packet received and not in receive mode
-			// reset FIFO address / // enter single RX mode
-			this->writeRegister(REG_FIFO_ADDR_PTR, FifoRxBaseAddr);
-			this->writeRegister(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_RX_SINGLE);
+			auto opmode = this->readRegister(REG_OP_MODE);
+			if (opmode != (MODE_LONG_RANGE_MODE | MODE_RX_SINGLE) && opmode != (MODE_LONG_RANGE_MODE | MODE_RX_CONTINUOUS))
+			{
+				// no packet received and not in receive mode
+				// reset FIFO address / // enter continuous RX mode
+				this->writeRegister(REG_FIFO_ADDR_PTR, FifoRxBaseAddr);
+				this->writeRegister(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_RX_CONTINUOUS);
+			}
 		}
 		return false;
 	}
