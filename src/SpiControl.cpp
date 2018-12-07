@@ -16,7 +16,7 @@ void SpiControl::Initialize(int pinSS, int pinRST, int pinINT)
 {
 	SPI.begin();
 	// lock out this interrupt while we are in a transaction
-	SPI.usingInterrupt(digitalPinToInterrupt(PIN_ID_LORA_DIO0));
+	SPI.usingInterrupt(digitalPinToInterrupt(pinINT));
 
 	// set the GPIO pins appropriately
 	this->_PinINT =pinINT;		// the chip select(low==selected)
