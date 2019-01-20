@@ -40,7 +40,7 @@ static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 								{"spreading_factor", 7},
 								{"coding_rate", 5},
 								{"enable_CRC", 1},
-								{ StringPair::LastSP, 0}};
+								{ StringPair_LastSP, 0}};
 
 // -------------------------------------
 // LoraUtil
@@ -89,7 +89,7 @@ static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 		this->spic->Initialize(pinSS, pinRST, pinINT);
 		this->lora = &_MySx127x;
 		this->lora->Initialize(NULL, this->spic);
-		this->spic->initLoraPins(); // init pins and reset sx127x chip
+		this->spic->InitLoraPins(); // init pins and reset sx127x chip
 		this->lora->init(params);
 		this->dstAddress = 0x41;
 		this->localAddress = 0x41;
@@ -134,7 +134,7 @@ static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 
 	void LoraUtil::Reset()
 	{
-		this->spic->initLoraPins();
+		this->spic->InitLoraPins();
 	}
 
 	void LoraUtil::Sleep()
@@ -149,7 +149,7 @@ static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 		if (pay!=NULL && pay->Size() > 1)
 		{
 			uint8_t* repay = pay->Data();
-			auto dstaddr = repay[0];
+			uint8_t dstaddr = repay[0];
 			// allow an address of zero for all
 			if(dstAddress != 0xff && dstAddress != this->localAddress)
 			{
@@ -223,7 +223,7 @@ static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 	}
 
 	// send a string. use hardcoded src, dst address
-	void LoraUtil::SendString(String& Content)
+	void LoraUtil::SendString(const String& Content)
 	{
 		int l = Content.length();
 		TinyVector tv(l, 1);		// leave room for the null so toCharArray is happy
@@ -259,3 +259,4 @@ static const StringPair LoraParameters[] = {{"tx_power_level", 5},
 	{
 		return this->lora->getLastSentTime();
 	}
+

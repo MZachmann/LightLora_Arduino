@@ -6,6 +6,9 @@
 // This is an Arduino controller for the Semtech sx1276 and cousins
 // It is fully interrupt driven (transmit and receive)
 
+#include "StringPair.h"
+#include "DigitalPin.h"
+
 
 class TinyVector;
 
@@ -24,15 +27,6 @@ class LoraReceiver
 		virtual void _doTransmit() = 0;
 };
 
-// to create a Python dictionary-like object
-class StringPair
-{
-	public:
-		StringPair(const char* name, int32_t value);
-		static const char* LastSP;	// Last for string list
-		const char* Name;
-		const int32_t Value;
-};
 
 // the method prototype for what we pass to the interrupt handler
 typedef void (*InterruptFn)(void);
@@ -44,7 +38,7 @@ class Sx127x
 {
 	public:
 		Sx127x();		// empty constructor
-		void Initialize(String* name=NULL, SpiControl* spic=NULL);
+		void Initialize(String* name=NULL, SpiControl* spic=NULL, uint8_t rxPin=NOPIN, uint8_t txPin=NOPIN);
 		virtual ~Sx127x();
 		
 	// parameters is a list of StringPairs ending with { StringPair::LastSP, 0}
@@ -99,11 +93,16 @@ class Sx127x
 		void LocalInterrupt();				// which calls this always...
 		void ReceiveSub();					// is called on receive packet
 		void TransmitSub();					// is called on packet sent
+		void SetBits(bool Receive);			// set the rx,tx switch bits
+		int ModelNum(void) const;
+		bool Is1272() const { return _ModelNumber == 1272; }
+
 
 		// properties
 		bool _Lock;
 		String _Name;
 		String _LastError;
+		int _ModelNumber;			// 1272 or 1276
 		int _IrqPin;				// the irq pin
 		bool _ImplicitHeaderMode;
 		uint8_t	_SpreadingFactor;	// the spreading factor setting

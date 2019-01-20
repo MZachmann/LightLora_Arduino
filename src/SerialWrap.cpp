@@ -24,8 +24,9 @@ SerialWrap::SerialWrap(String& caller)
 	_IsLogging = false;
 	_DidInit = false;		// only initialize serial once
 	_Caller = caller;		// for logging
-	_Baudrate = 19200;		// default baudrate=19200
+	_Baudrate = 115200;		// default baudrate=115200
 	SetFormatter(NULL);		// default time formatter
+	// InitIfNeeded(); too soon to init. delay(n) crashes the os during static init
 }
 
 // let this have an app-custom formatter so that the app can use an RTC for time instead of millis()
@@ -142,6 +143,8 @@ bool SerialWrap::InitIfNeeded(bool Force)
 	}
 
 	int onesec = 10;    // 10 * 10ms
+	// for unclear reasons, delay no longer works here, maybe because we're still
+	// in static initialization
 	// wait up to 100ms serial to become valid
 	while (onesec > 0 && !Serial)
 	{
@@ -154,13 +157,14 @@ bool SerialWrap::InitIfNeeded(bool Force)
 	{
 		delay(100);   // 100ms wait
 	}
-	// if we have one start it at 19200
+	// if we have one start it at _Baudrate
 	if(Serial)
 	{
 		Serial.begin(_Baudrate);
 		_DidInit = true;
+		Serial.println("Starting up serial");
 	}
-	delay(10);
+
 	return this->available();
 }
 

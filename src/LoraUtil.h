@@ -2,6 +2,7 @@
 #define LORA_UTIL
 
 #include "Sx127x.h"
+#include "StringPair.h"
 
 class SpiControl;
 class TinyVector;
@@ -41,7 +42,7 @@ class LoraUtil : public LoraReceiver
 		uint32_t GetLastSentTime(void);
 		// send
 		void SendPacket(uint8_t dstAddress, uint8_t localAddress, TinyVector& outGoing);
-		void SendString(String& content);
+		void SendString(const String& content);
 		void SetAddresses(uint8_t dstAddress, uint8_t localAddress);		// define the device after initialize
 		bool IsPacketSent(bool forceClear = false);		// asynchronous transmit flag
 		// receive

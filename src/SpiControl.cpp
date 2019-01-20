@@ -1,14 +1,12 @@
 #include "Arduino.h"
 #include <SPI.h>
 #include "SpiControl.h"
+#include "TinyVector.h"
 
-// these are my defaults for the circuit
-#define PIN_ID_LORA_RESET 7
-#define PIN_ID_LORA_SS 15
-#define PIN_ID_LORA_DIO0 11
+static const bool activeLowReset = true; // false for 1272, true for 1276
 
-// Constructor - set up the pins and SPI. Pins set to -1 we use default values above.
-SpiControl::SpiControl() : _Settings(5000000, MSBFIRST, SPI_MODE0)
+// Constructor - set up the pins and SPI.
+SpiControl::SpiControl() : _Settings(400000, MSBFIRST, SPI_MODE0)
 {
 }
 
@@ -19,65 +17,92 @@ void SpiControl::Initialize(int pinSS, int pinRST, int pinINT)
 	SPI.usingInterrupt(digitalPinToInterrupt(pinINT));
 
 	// set the GPIO pins appropriately
-	this->_PinINT =pinINT;		// the chip select(low==selected)
-	pinMode(_PinINT, INPUT);	// the irq pin
+	_DigInt.SetPin(pinINT); // establish IRQ as input
+    _DigSS.SetPin(pinSS, 1); // SS is always active low
+	_DigRst.SetPin(pinRST, activeLowReset ? 1 : 0);  // the reset (on high-low-high)
+}
 
-	this->_PinSS = pinSS;		// the chip select(low==selected)
-	pinMode(_PinSS, OUTPUT);
-	digitalWrite(_PinSS, HIGH);
+// the RF Lambda board claims to have an RX enable and TX enable pin
+// and spec claims only 1,0 and 0,1 are options (?)
+// testing works without the wires... so w/e
+// Setup Direction Pins. Current code calls this if detects an Sx1272
+void SpiControl::EnableDirPins(uint8_t rxPin, uint8_t txPin)
+{
+    if(rxPin != NOPIN && txPin != NOPIN)
+    {
+		_DigTx.SetPin(txPin, 0);
+		_DigRx.SetPin(rxPin, 1);
+    }
+}
 
-	this->_PinRST = pinRST;	// the reset (on high-low-high)
-	pinMode(_PinRST, OUTPUT);
-	digitalWrite(_PinRST, HIGH);
+// Set direction pin values
+void SpiControl::SetSxDir(bool isReceive)
+{
+	// if SetupDirPins was never called, gracefully do nothing
+	if(_DigTx.IsInitialized())
+	{
+		_DigTx = !isReceive;
+		_DigRx = isReceive;
+}
 }
 
 // sx127x transfer is always write two bytes while reading the second byte
 // a read doesn't write the second byte. a write returns the prior value.
 // write register // = 0x80 | read register //
-uint8_t SpiControl::transfer( uint8_t address, uint8_t value)
+uint8_t SpiControl::Transfer( uint8_t address, uint8_t value)
 {
-	noInterrupts();
+uint8_t query[2];
+    query[0] = address;
+    query[1] = value;
 	SPI.beginTransaction(this->_Settings);
-	digitalWrite(this->_PinSS, LOW);				// hold chip select low
-	SPI.transfer(address);				// write register address
-	uint8_t response = SPI.transfer(value); // write or read register walue
-	digitalWrite(this->_PinSS, HIGH);
+	_DigSS = 0;
+	SPI.transfer(query, 2);				// write register address
+	_DigSS = 1;
 	SPI.endTransaction();
-	interrupts();
-	return response;
+	return query[1];
 }
+
+TinyVector tv1(25); // 20 is the standard for lru
 
 // transfer a set of data to/from this register. 
 // On exit buffer contains the received data
-void SpiControl::transfer( uint8_t address, uint8_t* buffer, uint8_t count)
+// we make it a single transaction for speed, otherwise the chip drops the data
+void SpiControl::Transfer( uint8_t address, uint8_t* buffer, uint8_t count)
 {
-	noInterrupts();
 	SPI.beginTransaction(this->_Settings);
-	digitalWrite(this->_PinSS, LOW);				// hold chip select low
-	SPI.transfer(address);							// write register address
-	SPI.transfer(buffer, count);			 		// r/w data values
-	digitalWrite(this->_PinSS, HIGH);
+	_DigSS = 0;
+	if(tv1.Size() < count+1)
+	{
+		tv1.Allocate(count+1, 5);
+	}
+        uint8_t* tvData = tv1.Data(); 
+	tvData[0] = address;
+	memcpy(tvData+1, buffer, count);
+	SPI.transfer(tvData, count+1);
+	memcpy(buffer, tvData+1, count);
+	_DigSS = 1;
 	SPI.endTransaction();
-	interrupts();
 }
 
 // this doesn't belong here but it doesn't really belong anywhere, so put
 // it with the other loraconfig-ed stuff
-int SpiControl::getIrqPin()
+int SpiControl::GetIrqPin()
 {
-	return this->_PinINT;
+	return _DigInt.GetPin();
 }
 
 // this doesn't belong here but it doesn't really belong anywhere, so put
 // it with the other loraconfig-ed stuff
-void SpiControl::initLoraPins()
+void SpiControl::InitLoraPins()
 {
 	// initialize the pins for the LoRa device.
-	digitalWrite(this->_PinSS, HIGH);
+	_DigSS = 1;
 	// soft reset
-	digitalWrite(this->_PinRST, HIGH);
+	_DigRst = activeLowReset ? 1 : 0;
 	delay(10);
-	digitalWrite(this->_PinRST, LOW);
+	_DigRst = activeLowReset ? 0 : 1;
 	delay(10);
-	digitalWrite(this->_PinRST, HIGH);
+	_DigRst = activeLowReset ? 1 : 0;
+	delay(10);
 }
+
